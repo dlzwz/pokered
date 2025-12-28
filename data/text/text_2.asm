@@ -1477,6 +1477,19 @@ _WhatDoYouWantText::
 	line "to do?"
 	done
 
+_SortItemsText::
+	text "Sort items?"
+	done
+
+_SortComplete::
+	text "Items were"
+	line "sorted."
+	prompt
+
+_NothingToSort::
+	text "Nothing to sort."
+	prompt
+
 _WhatToDepositText::
 	text "What do you want"
 	line "to deposit?"
