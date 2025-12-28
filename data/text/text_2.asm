@@ -1211,8 +1211,8 @@ _GainedText::
 	text_end
 
 _WithExpAllText::
-	text "with EXP.ALL,"
-	cont "@"
+	text "Party gained"
+	line "@"
 	text_end
 
 _BoostedText::
