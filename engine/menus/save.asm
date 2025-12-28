@@ -170,7 +170,7 @@ SaveMenu:
 	hlcoord 1, 14
 	ld de, NowSavingString
 	call PlaceString
-	ld c, 120
+	ld c, 20	; reduced delay from 120
 	call DelayFrames
 	ld hl, GameSavedText
 	call PrintText
