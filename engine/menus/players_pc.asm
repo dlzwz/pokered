@@ -64,7 +64,7 @@ PlayerPCMenu:
 	jp z, PlayerPCToss
 
 ExitPlayerPC:
-	ld hl, [wMiscFlags]
+	ld hl, wMiscFlags
 	bit BIT_USING_GENERIC_PC, [hl]
 	res BIT_NO_SPRITE_UPDATES, [hl]
 	jr nz, .next
