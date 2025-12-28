@@ -7,8 +7,9 @@ PlayerPC::
 	xor a
 	ld [wBagSavedMenuItem], a
 	ld [wParentMenuItem], a
-	ld a, [wMiscFlags]
-	bit BIT_USING_GENERIC_PC, a
+	ld hl, wMiscFlags
+	bit BIT_USING_GENERIC_PC, [hl]
+	set BIT_NO_SPRITE_UPDATES, [hl]
 	jr nz, PlayerPCMenu
 ; accessing it directly
 	ld a, SFX_TURN_ON_PC
@@ -63,8 +64,9 @@ PlayerPCMenu:
 	jp z, PlayerPCToss
 
 ExitPlayerPC:
-	ld a, [wMiscFlags]
-	bit BIT_USING_GENERIC_PC, a
+	ld hl, [wMiscFlags]
+	bit BIT_USING_GENERIC_PC, [hl]
+	res BIT_NO_SPRITE_UPDATES, [hl]
 	jr nz, .next
 ; accessing it directly
 	ld a, SFX_TURN_OFF_PC

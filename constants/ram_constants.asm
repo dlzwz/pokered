@@ -7,9 +7,9 @@
 	const_def
 	const BIT_SEEN_BY_TRAINER      ; 0
 	const BIT_BOULDER_DUST         ; 1
-	const BIT_TURNING              ; 2
+	const BIT_TURNING              ; 2 Also if we're in a Mart menu Item Sorting's purpose
 	const BIT_USING_GENERIC_PC     ; 3
-	const BIT_NO_SPRITE_UPDATES    ; 4
+	const BIT_NO_SPRITE_UPDATES    ; 4 Also if we're in the PC for Item Sorting's purpose
 	const BIT_NO_MENU_BUTTON_SOUND ; 5
 	const BIT_TRIED_PUSH_BOULDER   ; 6
 	const BIT_PUSHED_BOULDER       ; 7
