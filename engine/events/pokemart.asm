@@ -1,4 +1,6 @@
 DisplayPokemartDialogue_::
+	ld hl, wMiscFlags
+	set BIT_TURNING, [hl]
 	ld a, [wListScrollOffset]
 	ld [wSavedListScrollOffset], a
 	call UpdateSprites
@@ -218,6 +220,8 @@ DisplayPokemartDialogue_::
 	call PrintText
 	jr .returnToMainPokemartMenu
 .done
+	ld hl, wMiscFlags
+	res BIT_TURNING, [hl]
 	ld hl, PokemartThankYouText
 	call PrintText
 	ld a, 1

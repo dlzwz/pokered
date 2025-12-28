@@ -50,7 +50,7 @@ DisplayListMenuID::
 	ld [wTopMenuItemY], a
 	ld a, 5
 	ld [wTopMenuItemX], a
-	ld a, PAD_A | PAD_B | PAD_SELECT
+	ld a, PAD_A | PAD_B | PAD_SELECT | PAD_START
 	ld [wMenuWatchedKeys], a
 	ld c, 10
 	call DelayFrames
@@ -174,6 +174,8 @@ DisplayListMenuIDLoop::
 	jp nz, ExitListMenu ; if so, exit the menu
 	bit B_PAD_SELECT, a
 	jp nz, HandleItemListSwapping ; if so, allow the player to swap menu entries
+	bit B_PAD_START, a
+	jp nz, SortItems
 	ld b, a
 	bit B_PAD_DOWN, b
 	ld hl, wListScrollOffset
