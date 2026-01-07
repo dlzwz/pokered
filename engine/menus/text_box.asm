@@ -596,7 +596,9 @@ AddLearnableHMFieldMoves:
 	jr nc, .skip
 	ld a, b
 	push hl
+	push bc
 	call MonKnowsMove
+	pop bc
 	pop hl
 	jr c, .skip
 	ld a, b
