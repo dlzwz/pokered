@@ -1359,6 +1359,13 @@ ThrewRockText:
 	text_end
 
 ; indirectly used by DIG in StartMenu_Pokemon.dig
+IsEscapeRopeAllowed::
+	ld a, [wCurMapTileset]
+	ld hl, EscapeRopeTilesets
+	ld de, 1
+	call IsInArray
+	ret
+
 ItemUseEscapeRope:
 	ld a, [wIsInBattle]
 	and a

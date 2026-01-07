@@ -382,10 +382,11 @@ INCLUDE "data/yes_no_menu_strings.asm"
 DisplayFieldMoveMonMenu:
 	xor a
 	ld hl, wFieldMoves
+	ld c, FIELD_MOVE_MENU_CAPACITY
+.clearFieldMovesLoop
 	ld [hli], a ; wFieldMoves
-	ld [hli], a ; wFieldMoves + 1
-	ld [hli], a ; wFieldMoves + 2
-	ld [hli], a ; wFieldMoves + 3
+	dec c
+	jr nz, .clearFieldMovesLoop
 	ld [hli], a ; wNumFieldMoves
 	ld [hl], 12 ; wFieldMovesLeftmostXCoord
 	call GetMonFieldMoves
@@ -507,55 +508,327 @@ PokemonMenuEntries:
 	next "CANCEL@"
 
 GetMonFieldMoves:
+	call LoadCurPartySpecies
+	call MaybeAddCut
+	call MaybeAddFly
+	call MaybeAddSurf
+	call MaybeAddStrength
+	call MaybeAddFlash
+	call MaybeAddDig
+	call MaybeAddTeleport
+	call MaybeAddSoftboiled
+	ret
+
+LoadCurPartySpecies:
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Species
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld a, [hl]
+	ld [wCurPartySpecies], a
+	ret
+
+MaybeAddCut:
+	ld a, [wObtainedBadges]
+	bit BIT_CASCADEBADGE, a
+	ret z
+	call CanUseCutLocation
+	ret nc
+	ld a, CUT
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, CUT
+	call CheckMonCanLearnTMHM
+	jr c, .add
+	ld a, CUT
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, CUT
+	jp AddFieldMoveByID
+
+MaybeAddFly:
+	ld a, [wObtainedBadges]
+	bit BIT_THUNDERBADGE, a
+	ret z
+	call CheckIfInOutsideMap
+	ret nz
+	ld a, FLY
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, FLY
+	call CheckMonCanLearnTMHM
+	jr c, .add
+	ld a, FLY
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, FLY
+	jp AddFieldMoveByID
+
+MaybeAddSurf:
+	ld a, [wObtainedBadges]
+	bit BIT_SOULBADGE, a
+	ret z
+	call CanUseSurfLocation
+	ret nc
+	ld a, SURF
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, SURF
+	call CheckMonCanLearnTMHM
+	jr c, .add
+	ld a, SURF
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, SURF
+	jp AddFieldMoveByID
+
+MaybeAddStrength:
+	ld a, [wObtainedBadges]
+	bit BIT_RAINBOWBADGE, a
+	ret z
+	ld a, STRENGTH
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, STRENGTH
+	call CheckMonCanLearnTMHM
+	jr c, .add
+	ld a, STRENGTH
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, STRENGTH
+	jp AddFieldMoveByID
+
+MaybeAddFlash:
+	ld a, [wObtainedBadges]
+	bit BIT_BOULDERBADGE, a
+	ret z
+	call CanUseFlashLocation
+	ret nc
+	ld a, FLASH
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, FLASH
+	call CheckMonCanLearnTMHM
+	jr c, .add
+	ld a, FLASH
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, FLASH
+	jp AddFieldMoveByID
+
+MaybeAddDig:
+	call CanUseDigLocation
+	ret nc
+	ld a, DIG
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, DIG
+	call CheckMonCanLearnTMHM
+	jr c, .add
+	ld a, DIG
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, DIG
+	jp AddFieldMoveByID
+
+MaybeAddTeleport:
+	call CheckIfInOutsideMap
+	ret nz
+	ld a, TELEPORT
+	call CheckMonKnowsMove
+	jr c, .add
+	ld a, TELEPORT
+	call CheckMonLearnLevelUp
+	ret nc
+.add
+	ld a, TELEPORT
+	jp AddFieldMoveByID
+
+MaybeAddSoftboiled:
+	ld a, SOFTBOILED
+	call CheckMonKnowsMove
+	ret nc
+	ld a, SOFTBOILED
+	jp AddFieldMoveByID
+
+CheckMonKnowsMove:
+	ld b, a
 	ld a, [wWhichPokemon]
 	ld hl, wPartyMon1Moves
 	ld bc, PARTYMON_STRUCT_LENGTH
 	call AddNTimes
 	ld d, h
 	ld e, l
-	ld c, NUM_MOVES + 1
-	ld hl, wFieldMoves
+	ld c, NUM_MOVES
 .loop
-	push hl
-.nextMove
-	dec c
-	jr z, .done
-	ld a, [de] ; move ID
-	and a
-	jr z, .done
-	ld b, a
+	ld a, [de]
+	cp b
+	jr z, .found
 	inc de
+	dec c
+	jr nz, .loop
+	and a
+	ret
+.found
+	scf
+	ret
+
+CheckMonCanLearnTMHM:
+	ld d, a
+	ld hl, TechnicalMachines
+	ld b, NUM_TM_HM
+.loop
+	ld a, [hli]
+	cp d
+	jr z, .found
+	dec b
+	jr nz, .loop
+	and a
+	ret
+.found
+	ld a, d
+	ld [wMoveNum], a
+	predef CanLearnTM
+	ld a, c
+	and a
+	ret z
+	scf
+	ret
+
+CheckMonLearnLevelUp:
+	ld d, a
+	ld a, BANK(EvosMovesPointerTable)
+	call BankswitchHome
+	ld a, [wCurPartySpecies]
+	dec a
+	add a
+	ld c, a
+	ld b, 0
+	ld hl, EvosMovesPointerTable
+	add hl, bc
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+.skipEvos
+	ld a, [hli]
+	and a
+	jr z, .findMoves
+	cp EVOLVE_ITEM
+	jr z, .skipItem
+	inc hl
+	inc hl
+	jr .skipEvos
+.skipItem
+	inc hl
+	inc hl
+	inc hl
+	jr .skipEvos
+.findMoves
+	ld a, [hli]
+	and a
+	jr z, .notFound
+	ld a, [hli]
+	cp d
+	jr z, .found
+	jr .findMoves
+.found
+	call BankswitchBack
+	scf
+	ret
+.notFound
+	call BankswitchBack
+	and a
+	ret
+
+AddFieldMoveByID:
+	ld d, a
+	ld a, [wNumFieldMoves]
+	cp FIELD_MOVE_MENU_CAPACITY
+	ret nc
 	ld hl, FieldMoveDisplayData
-.fieldMoveLoop
+.loop
 	ld a, [hli]
 	cp $ff
-	jr z, .nextMove ; if the move is not a field move
-	cp b
-	jr z, .foundFieldMove
+	ret z
+	cp d
+	jr z, .found
 	inc hl
 	inc hl
-	jr .fieldMoveLoop
-.foundFieldMove
-	ld a, b
+	jr .loop
+.found
+	ld a, d
 	ld [wLastFieldMoveID], a
 	ld a, [hli] ; field move name index
-	ld b, [hl] ; field move leftmost X coordinate
-	pop hl
-	ld [hli], a ; store name index in wFieldMoves
+	ld e, a
+	ld a, [hl] ; field move leftmost X coordinate
+	ld d, a
+	ld hl, wFieldMoves
+	ld a, [wNumFieldMoves]
+	ld c, a
+	ld b, 0
+	add hl, bc
+	ld a, e
+	ld [hl], a
 	ld a, [wNumFieldMoves]
 	inc a
 	ld [wNumFieldMoves], a
 	ld a, [wFieldMovesLeftmostXCoord]
-	cp b
-	jr c, .skipUpdatingLeftmostXCoord
-	ld a, b
+	cp d
+	jr c, .done
+	ld a, d
 	ld [wFieldMovesLeftmostXCoord], a
-.skipUpdatingLeftmostXCoord
-	ld a, [wLastFieldMoveID]
-	ld b, a
-	jr .loop
 .done
-	pop hl
+	ret
+
+CanUseCutLocation:
+	ld a, [wCurMapTileset]
+	and a ; OVERWORLD
+	jr z, .overworld
+	cp GYM
+	jr nz, .notValid
+	ld a, [wTileInFrontOfPlayer]
+	cp $50 ; gym cut tree
+	jr z, .valid
+	jr .notValid
+.overworld
+	ld a, [wTileInFrontOfPlayer]
+	cp $3d ; cut tree
+	jr z, .valid
+	cp $52 ; grass
+	jr z, .valid
+.notValid
+	and a
+	ret
+.valid
+	scf
+	ret
+
+CanUseSurfLocation:
+	farcall IsNextTileShoreOrWater
+	ret c
+	ld hl, TilePairCollisionsWater
+	call CheckForTilePairCollisions
+	ret c
+	scf
+	ret
+
+CanUseFlashLocation:
+	ld a, [wMapPalOffset]
+	and a
+	ret z
+	scf
+	ret
+
+CanUseDigLocation:
+	farcall IsEscapeRopeAllowed
+	ret nc
+	scf
 	ret
 
 INCLUDE "data/moves/field_moves.asm"

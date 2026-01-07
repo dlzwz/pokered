@@ -627,7 +627,7 @@ wPriceTemp:: ds 3 ; BCD
 
 NEXTU
 ; the current mon's field moves
-wFieldMoves:: ds NUM_MOVES
+wFieldMoves:: ds FIELD_MOVE_MENU_CAPACITY
 wNumFieldMoves:: db
 wFieldMovesLeftmostXCoord:: db
 wLastFieldMoveID:: db ; unused
