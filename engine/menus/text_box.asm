@@ -516,16 +516,18 @@ GetMonFieldMoves:
 	jr z, .done
 	ld b, a
 	ld a, [hli] ; field move name index
-	ld d, a
+	ld c, a
 	ld a, [hli] ; field move leftmost X coordinate
-	ld e, a
+	ld d, a
+	push hl
+	push de
 	ld a, b
 	call CheckMonKnowsMove
 	and a
 	jr z, .addMove
 	ld a, b
 	cp SOFTBOILED
-	jr z, .loop
+	jr z, .skipAdd
 	ld a, b
 	callfar CheckMonCanLearnTMHM
 	and a
@@ -533,22 +535,28 @@ GetMonFieldMoves:
 	ld a, b
 	callfar CheckMonLearnsMoveByLevel
 	and a
-	jr nz, .loop
+	jr nz, .skipAdd
 .addMove
+	pop de
 	ld a, b
 	ld [wLastFieldMoveID], a
-	ld a, d
+	ld a, c
 	ld [de], a ; store name index in wFieldMoves
 	inc de
 	ld a, [wNumFieldMoves]
 	inc a
 	ld [wNumFieldMoves], a
 	ld a, [wFieldMovesLeftmostXCoord]
-	cp e
+	cp d
 	jr c, .skipUpdatingLeftmostXCoord
-	ld a, e
+	ld a, d
 	ld [wFieldMovesLeftmostXCoord], a
 .skipUpdatingLeftmostXCoord
+	pop hl
+	jr .loop
+.skipAdd
+	pop de
+	pop hl
 	jr .loop
 .done
 	ret
