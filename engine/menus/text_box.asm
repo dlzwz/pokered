@@ -507,55 +507,118 @@ PokemonMenuEntries:
 	next "CANCEL@"
 
 GetMonFieldMoves:
-	ld a, [wWhichPokemon]
-	ld hl, wPartyMon1Moves
-	ld bc, PARTYMON_STRUCT_LENGTH
-	call AddNTimes
-	ld d, h
-	ld e, l
-	ld c, NUM_MOVES + 1
-	ld hl, wFieldMoves
-.loop
-	push hl
-.nextMove
-	dec c
-	jr z, .done
-	ld a, [de] ; move ID
-	and a
-	jr z, .done
-	ld b, a
-	inc de
 	ld hl, FieldMoveDisplayData
-.fieldMoveLoop
+.loop
 	ld a, [hli]
 	cp $ff
-	jr z, .nextMove ; if the move is not a field move
-	cp b
-	jr z, .foundFieldMove
-	inc hl
-	inc hl
-	jr .fieldMoveLoop
-.foundFieldMove
+	jr z, .done
+	ld b, a ; move ID
+	ld a, [hli]
+	ld c, a ; field move name index
+	ld a, [hli]
+	ld e, a ; field move leftmost X coordinate
+	push hl
 	ld a, b
-	ld [wLastFieldMoveID], a
-	ld a, [hli] ; field move name index
-	ld b, [hl] ; field move leftmost X coordinate
-	pop hl
-	ld [hli], a ; store name index in wFieldMoves
+	call IsPartyFieldMove
+	jr nc, .checkCurrentMon
+	ld a, b
+	call CheckPartyCanLearnMove
+	jr nc, .addFieldMove
+	ld a, b
+	call CheckMonKnowsMove
+	jr nc, .addFieldMove
+	jr .skipFieldMove
+.checkCurrentMon
+	ld a, b
+	call CheckMonKnowsMove
+	jr c, .skipFieldMove
+.addFieldMove
+	push bc
+	ld a, [wNumFieldMoves]
+	ld b, 0
+	ld c, a
+	ld hl, wFieldMoves
+	add hl, bc
+	pop bc
+	ld a, c
+	ld [hl], a ; store name index in wFieldMoves
 	ld a, [wNumFieldMoves]
 	inc a
 	ld [wNumFieldMoves], a
 	ld a, [wFieldMovesLeftmostXCoord]
-	cp b
+	cp e
 	jr c, .skipUpdatingLeftmostXCoord
-	ld a, b
+	ld a, e
 	ld [wFieldMovesLeftmostXCoord], a
 .skipUpdatingLeftmostXCoord
-	ld a, [wLastFieldMoveID]
-	ld b, a
+.skipFieldMove
+	pop hl
 	jr .loop
 .done
+	ret
+
+CheckPartyCanLearnMove:
+; Check if any monster in party can learn move in a.
+	ld [wMoveNum], a
+	ld hl, wPartySpecies
+.loop
+	ld a, [hli]
+	cp $ff
+	jr z, .no
+	ld [wCurPartySpecies], a
+	push hl
+	predef CanLearnTM
 	pop hl
+	ld a, c
+	and a
+	jr nz, .yes
+	jr .loop
+.yes
+	xor a
+	ret
+.no
+	scf
+	ret
+
+CheckMonKnowsMove:
+; Check if selected monster knows move in a.
+	ld d, a
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld c, NUM_MOVES
+.loop
+	ld a, [hli]
+	and a
+	jr z, .no
+	cp d
+	jr z, .yes
+	dec c
+	jr nz, .loop
+.no
+	scf
+	ret
+.yes
+	xor a
+	ret
+
+IsPartyFieldMove:
+; Check if move in a should be shown when any party monster can learn it.
+	cp CUT
+	jr z, .yes
+	cp FLY
+	jr z, .yes
+	cp SURF
+	jr z, .yes
+	cp STRENGTH
+	jr z, .yes
+	cp FLASH
+	jr z, .yes
+	and a
+	ret
+.yes
+	scf
 	ret
 
 INCLUDE "data/moves/field_moves.asm"
