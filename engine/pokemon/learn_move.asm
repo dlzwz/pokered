@@ -168,17 +168,10 @@ TryingToLearn:
 	call IsMoveHM
 	pop bc
 	pop de
-	ld a, d
-	jr c, .hm
 	pop hl
 	add hl, bc
 	and a
 	ret
-.hm
-	ld hl, HMCantDeleteText
-	call PrintText
-	pop hl
-	jr .loop
 .cancel
 	scf
 	ret
