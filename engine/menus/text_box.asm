@@ -508,54 +508,145 @@ PokemonMenuEntries:
 
 GetMonFieldMoves:
 	ld a, [wWhichPokemon]
-	ld hl, wPartyMon1Moves
+	ld hl, wPartyMon1Species
 	ld bc, PARTYMON_STRUCT_LENGTH
 	call AddNTimes
-	ld d, h
-	ld e, l
-	ld c, NUM_MOVES + 1
-	ld hl, wFieldMoves
-.loop
-	push hl
-.nextMove
-	dec c
-	jr z, .done
-	ld a, [de] ; move ID
-	and a
-	jr z, .done
-	ld b, a
-	inc de
+	ld a, [hl]
+	ld [wCurPartySpecies], a
 	ld hl, FieldMoveDisplayData
-.fieldMoveLoop
+	ld de, wFieldMoves
+.loop
 	ld a, [hli]
 	cp $ff
-	jr z, .nextMove ; if the move is not a field move
-	cp b
-	jr z, .foundFieldMove
-	inc hl
-	inc hl
-	jr .fieldMoveLoop
-.foundFieldMove
+	jr z, .done
+	ld b, a
+	ld a, [hli]
+	ld c, a
+	ld a, [hli]
+	push hl
+	push de
+	push bc
+	push af
 	ld a, b
-	ld [wLastFieldMoveID], a
-	ld a, [hli] ; field move name index
-	ld b, [hl] ; field move leftmost X coordinate
+	call MonKnowsFieldMove
+	jr z, .addMove
+	ld a, b
+	cp SOFTBOILED
+	jr z, .skipMove
+	ld a, b
+	call MonCanLearnFieldMove
+	jr c, .addMove
+.skipMove
+	pop af
+	pop bc
+	pop de
 	pop hl
-	ld [hli], a ; store name index in wFieldMoves
+	jr .loop
+.addMove
+	pop af
+	ld b, a
+	pop bc
+	pop de
+	pop hl
+	ld a, c
+	ld [de], a
+	inc de
 	ld a, [wNumFieldMoves]
 	inc a
 	ld [wNumFieldMoves], a
 	ld a, [wFieldMovesLeftmostXCoord]
 	cp b
-	jr c, .skipUpdatingLeftmostXCoord
+	jr c, .loop
 	ld a, b
 	ld [wFieldMovesLeftmostXCoord], a
-.skipUpdatingLeftmostXCoord
-	ld a, [wLastFieldMoveID]
-	ld b, a
 	jr .loop
 .done
+	ret
+
+MonKnowsFieldMove:
+	ld b, a
+	push hl
+	push bc
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld c, NUM_MOVES
+.moveLoop
+	ld a, [hli]
+	cp b
+	jr z, .found
+	dec c
+	jr nz, .moveLoop
+	scf
+	jr .done
+.found
+	xor a
+.done
+	pop bc
 	pop hl
+	ret
+
+MonCanLearnFieldMove:
+	ld b, a
+	push bc
+	push de
+	push hl
+	ld a, b
+	ld [wMoveNum], a
+	ld a, b
+	cp CUT
+	jr z, .checkTM
+	cp FLY
+	jr z, .checkTM
+	cp SURF
+	jr z, .checkTM
+	cp STRENGTH
+	jr z, .checkTM
+	cp FLASH
+	jr z, .checkTM
+	cp DIG
+	jr z, .checkTM
+	jr .checkLevelUp
+.checkTM
+	predef CanLearnTM
+	ld a, c
+	and a
+	jr nz, .found
+.checkLevelUp
+	ld a, [wCurPartySpecies]
+	dec a
+	ld b, 0
+	ld c, a
+	ld hl, EvosMovesPointerTable
+	add hl, bc
+	add hl, bc
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+.skipEvoData
+	ld a, [hli]
+	and a
+	jr nz, .skipEvoData
+.learnsetLoop
+	ld a, [hli]
+	and a
+	jr z, .notFound
+	ld a, [hli]
+	ld b, a
+	ld a, [wMoveNum]
+	cp b
+	jr z, .found
+	jr .learnsetLoop
+.found
+	scf
+	jr .done
+.notFound
+	and a
+.done
+	pop hl
+	pop de
+	pop bc
 	ret
 
 INCLUDE "data/moves/field_moves.asm"
