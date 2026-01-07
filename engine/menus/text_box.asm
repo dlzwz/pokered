@@ -513,8 +513,11 @@ GetMonFieldMoves:
 	call AddNTimes
 	ld d, h
 	ld e, l
-	ld c, NUM_MOVES + 1
 	ld hl, wFieldMoves
+	push de
+	call AddLearnableHMFieldMoves
+	pop de
+	ld c, NUM_MOVES + 1
 .loop
 	push hl
 .nextMove
@@ -557,5 +560,138 @@ GetMonFieldMoves:
 .done
 	pop hl
 	ret
+
+AddLearnableHMFieldMoves:
+; input: hl = wFieldMoves
+; output: hl = wFieldMoves + wNumFieldMoves
+	push hl
+	ld a, [wWhichPokemon]
+	ld c, a
+	ld b, 0
+	ld hl, wPartySpecies
+	add hl, bc
+	ld a, [hl]
+	ld [wCurPartySpecies], a
+	pop hl
+	call CountKnownFieldMoves
+	ld de, HMFieldMoveDisplayData
+.loop
+	ld a, [de]
+	cp -1
+	jr z, .done
+	ld b, a ; move id
+	inc de
+	ld a, [de]
+	ld c, a ; field move name index
+	inc de
+	ld a, [de]
+	inc de
+	push de
+	ld e, a ; field move leftmost X coordinate
+	ld a, [wNumFieldMoves]
+	ld d, a
+	ld a, [wFieldMoveKnownCount]
+	add d
+	cp NUM_MOVES
+	jr nc, .skip
+	ld a, b
+	push hl
+	call MonKnowsMove
+	pop hl
+	jr c, .skip
+	ld a, b
+	ld [wMoveNum], a
+	push hl
+	push bc
+	predef CanLearnTM
+	ld a, c
+	pop bc
+	pop hl
+	and a
+	jr z, .skip
+	ld a, b
+	ld [wLastFieldMoveID], a
+	ld a, c
+	ld [hli], a ; store name index in wFieldMoves
+	ld a, [wNumFieldMoves]
+	inc a
+	ld [wNumFieldMoves], a
+	ld a, [wFieldMovesLeftmostXCoord]
+	cp e
+	jr c, .skip
+	ld a, e
+	ld [wFieldMovesLeftmostXCoord], a
+.skip
+	pop de
+	jr .loop
+.done
+	ret
+
+MonKnowsMove:
+; input: a = move id
+; output: carry set if the current party mon knows the move
+	ld b, a
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld c, NUM_MOVES
+.loop
+	ld a, [hli]
+	cp b
+	jr z, .found
+	dec c
+	jr nz, .loop
+	and a
+	ret
+.found
+	scf
+	ret
+
+CountKnownFieldMoves:
+; output: wFieldMoveKnownCount = number of field moves in the mon's moveset
+	xor a
+	ld [wFieldMoveKnownCount], a
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld d, h
+	ld e, l
+	ld c, NUM_MOVES + 1
+.loop
+	dec c
+	jr z, .done
+	ld a, [de] ; move ID
+	and a
+	jr z, .done
+	ld b, a
+	inc de
+	ld hl, FieldMoveDisplayData
+.fieldMoveLoop
+	ld a, [hli]
+	cp $ff
+	jr z, .loop
+	cp b
+	jr z, .foundFieldMove
+	inc hl
+	inc hl
+	jr .fieldMoveLoop
+.foundFieldMove
+	ld a, [wFieldMoveKnownCount]
+	inc a
+	ld [wFieldMoveKnownCount], a
+	jr .loop
+.done
+	ret
+
+HMFieldMoveDisplayData:
+	; move id, FieldMoveNames index, leftmost tile
+	db CUT,      1, $0C
+	db FLY,      2, $0C
+	db SURF,     4, $0C
+	db STRENGTH, 5, $0A
+	db FLASH,    6, $0C
+	db -1
 
 INCLUDE "data/moves/field_moves.asm"
