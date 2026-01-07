@@ -507,55 +507,80 @@ PokemonMenuEntries:
 	next "CANCEL@"
 
 GetMonFieldMoves:
-	ld a, [wWhichPokemon]
-	ld hl, wPartyMon1Moves
-	ld bc, PARTYMON_STRUCT_LENGTH
-	call AddNTimes
-	ld d, h
-	ld e, l
-	ld c, NUM_MOVES + 1
-	ld hl, wFieldMoves
+	call SetCurPartySpeciesFromWhich
+	ld hl, FieldMoveDisplayData
+	ld de, wFieldMoves
 .loop
-	push hl
-.nextMove
-	dec c
-	jr z, .done
-	ld a, [de] ; move ID
-	and a
+	ld a, [hli] ; move id
+	cp $ff
 	jr z, .done
 	ld b, a
-	inc de
-	ld hl, FieldMoveDisplayData
-.fieldMoveLoop
-	ld a, [hli]
-	cp $ff
-	jr z, .nextMove ; if the move is not a field move
-	cp b
-	jr z, .foundFieldMove
-	inc hl
-	inc hl
-	jr .fieldMoveLoop
-.foundFieldMove
+	ld a, [hli] ; field move name index
+	ld d, a
+	ld a, [hli] ; field move leftmost X coordinate
+	ld e, a
+	ld a, b
+	call CheckMonKnowsMove
+	and a
+	jr z, .addMove
+	ld a, b
+	cp SOFTBOILED
+	jr z, .loop
+	ld a, b
+	callfar CheckMonCanLearnTMHM
+	and a
+	jr z, .addMove
+	ld a, b
+	callfar CheckMonLearnsMoveByLevel
+	and a
+	jr nz, .loop
+.addMove
 	ld a, b
 	ld [wLastFieldMoveID], a
-	ld a, [hli] ; field move name index
-	ld b, [hl] ; field move leftmost X coordinate
-	pop hl
-	ld [hli], a ; store name index in wFieldMoves
+	ld a, d
+	ld [de], a ; store name index in wFieldMoves
+	inc de
 	ld a, [wNumFieldMoves]
 	inc a
 	ld [wNumFieldMoves], a
 	ld a, [wFieldMovesLeftmostXCoord]
-	cp b
+	cp e
 	jr c, .skipUpdatingLeftmostXCoord
-	ld a, b
+	ld a, e
 	ld [wFieldMovesLeftmostXCoord], a
 .skipUpdatingLeftmostXCoord
-	ld a, [wLastFieldMoveID]
-	ld b, a
 	jr .loop
 .done
-	pop hl
+	ret
+
+SetCurPartySpeciesFromWhich:
+	ld a, [wWhichPokemon]
+	ld c, a
+	ld b, 0
+	ld hl, wPartySpecies
+	add hl, bc
+	ld a, [hl]
+	ld [wCurPartySpecies], a
+	ret
+
+CheckMonKnowsMove:
+	ld b, a
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld c, NUM_MOVES
+.loop
+	ld a, [hli]
+	cp b
+	jr z, .found
+	dec c
+	jr nz, .loop
+	ld a, 1
+	scf
+	ret
+.found
+	xor a
 	ret
 
 INCLUDE "data/moves/field_moves.asm"

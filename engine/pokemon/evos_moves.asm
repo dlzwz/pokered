@@ -320,6 +320,40 @@ Evolution_ReloadTilesetTilePatterns:
 	ret z
 	jp ReloadTilesetTilePatterns
 
+; checks if [wCurPartySpecies] can learn move in a via level-up learnset
+; returns a=0 if found, a=1 if not found
+CheckMonLearnsMoveByLevel:
+	ld d, a
+	ld a, [wCurPartySpecies]
+	dec a
+	ld b, 0
+	add a
+	rl b
+	ld c, a
+	ld hl, EvosMovesPointerTable
+	add hl, bc
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+.skipEvolutionDataLoop
+	ld a, [hli]
+	and a
+	jr nz, .skipEvolutionDataLoop
+.learnsetLoop
+	ld a, [hli]
+	and a
+	jr z, .notfound
+	ld a, [hli]
+	cp d
+	jr z, .found
+	jr .learnsetLoop
+.found
+	xor a
+	ret
+.notfound
+	ld a, 1
+	ret
+
 LearnMoveFromLevelUp:
 	ld hl, EvosMovesPointerTable
 	ld a, [wPokedexNum] ; species
