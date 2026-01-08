@@ -631,7 +631,6 @@ wFieldMoves:: ds NUM_MOVES
 wNumFieldMoves:: db
 wFieldMovesLeftmostXCoord:: db
 wLastFieldMoveID:: db ; unused
-wFieldMoveKnownCount:: db
 
 NEXTU
 wBoxNumString:: ds 3

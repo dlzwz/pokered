@@ -565,6 +565,7 @@ AddLearnableHMFieldMoves:
 ; input: hl = wFieldMoves
 ; output: hl = wFieldMoves + wNumFieldMoves
 	push hl
+	push bc
 	ld a, [wWhichPokemon]
 	ld c, a
 	ld b, 0
@@ -572,43 +573,81 @@ AddLearnableHMFieldMoves:
 	add hl, bc
 	ld a, [hl]
 	ld [wCurPartySpecies], a
+	pop bc
 	pop hl
-	call CountKnownFieldMoves
-	ld de, HMFieldMoveDisplayData
+	ld de, FieldMoveDisplayData
 .loop
 	ld a, [de]
 	cp -1
 	jr z, .done
-	ld b, a ; move id
+	ld [wMoveNum], a ; move id
 	inc de
 	ld a, [de]
 	ld c, a ; field move name index
 	inc de
 	ld a, [de]
 	inc de
-	push de
-	ld e, a ; field move leftmost X coordinate
+	push af ; field move leftmost X coordinate
+	ld a, [wMoveNum]
+	cp CUT
+	jr z, .process
+	cp FLY
+	jr z, .process
+	cp SURF
+	jr z, .process
+	cp STRENGTH
+	jr z, .process
+	cp FLASH
+	jr z, .process
+.skipEntry
+	pop af
+	jr .loop
+.process
 	ld a, [wNumFieldMoves]
-	ld d, a
-	ld a, [wFieldMoveKnownCount]
-	add d
 	cp NUM_MOVES
-	jr nc, .skip
-	ld a, b
+	jr nc, .skipEntry
 	push hl
 	push bc
-	call MonKnowsMove
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld bc, PARTYMON_STRUCT_LENGTH
+	call AddNTimes
+	ld b, NUM_MOVES
+	ld a, [wMoveNum]
+	ld c, a
+.knowsLoop
+	ld a, [hli]
+	cp c
+	jr z, .alreadyKnows
+	dec b
+	jr nz, .knowsLoop
+	and a
+	jr .knowsDone
+.alreadyKnows
+	scf
+.knowsDone
 	pop bc
 	pop hl
-	jr c, .skip
+	jr c, .skipEntry
 	push hl
 	push bc
-	call HMFieldMoveAlreadyListed
+	ld a, [wNumFieldMoves]
+	and a
+	jr z, .notListed
+	ld b, a
+	ld hl, wFieldMoves
+.dedupeLoop
+	ld a, [hli]
+	cp c
+	jr z, .listed
+	dec b
+	jr nz, .dedupeLoop
+.notListed
+	and a
+.listed
 	pop bc
 	pop hl
-	jr c, .skip
-	ld a, b
-	ld [wMoveNum], a
+	jr c, .skipEntry
 	ld a, [wWhichPokemon]
 	ld c, a
 	ld b, 0
@@ -623,110 +662,23 @@ AddLearnableHMFieldMoves:
 	pop bc
 	pop hl
 	and a
-	jr z, .skip
-	ld a, b
+	jr z, .skipEntry
+	ld a, [wMoveNum]
 	ld [wLastFieldMoveID], a
 	ld a, c
 	ld [hli], a ; store name index in wFieldMoves
 	ld a, [wNumFieldMoves]
 	inc a
 	ld [wNumFieldMoves], a
+	pop af
+	ld b, a
 	ld a, [wFieldMovesLeftmostXCoord]
-	cp e
-	jr c, .skip
-	ld a, e
+	cp b
+	jr c, .loop
+	ld a, b
 	ld [wFieldMovesLeftmostXCoord], a
-.skip
-	pop de
 	jr .loop
 .done
 	ret
-
-MonKnowsMove:
-; input: a = move id
-; output: carry set if the current party mon knows the move
-	ld b, a
-	ld a, [wWhichPokemon]
-	ld hl, wPartyMon1Moves
-	ld bc, PARTYMON_STRUCT_LENGTH
-	call AddNTimes
-	ld c, NUM_MOVES
-.loop
-	ld a, [hli]
-	cp b
-	jr z, .found
-	dec c
-	jr nz, .loop
-	and a
-	ret
-.found
-	scf
-	ret
-
-HMFieldMoveAlreadyListed:
-; input: c = field move name index
-; output: carry set if name index already in wFieldMoves
-	ld a, [wNumFieldMoves]
-	and a
-	ret z
-	ld b, a
-	ld hl, wFieldMoves
-.loop
-	ld a, [hli]
-	cp c
-	jr z, .found
-	dec b
-	jr nz, .loop
-	and a
-	ret
-.found
-	scf
-	ret
-
-CountKnownFieldMoves:
-; output: wFieldMoveKnownCount = number of field moves in the mon's moveset
-	xor a
-	ld [wFieldMoveKnownCount], a
-	ld a, [wWhichPokemon]
-	ld hl, wPartyMon1Moves
-	ld bc, PARTYMON_STRUCT_LENGTH
-	call AddNTimes
-	ld d, h
-	ld e, l
-	ld c, NUM_MOVES + 1
-.loop
-	dec c
-	jr z, .done
-	ld a, [de] ; move ID
-	and a
-	jr z, .done
-	ld b, a
-	inc de
-	ld hl, FieldMoveDisplayData
-.fieldMoveLoop
-	ld a, [hli]
-	cp $ff
-	jr z, .loop
-	cp b
-	jr z, .foundFieldMove
-	inc hl
-	inc hl
-	jr .fieldMoveLoop
-.foundFieldMove
-	ld a, [wFieldMoveKnownCount]
-	inc a
-	ld [wFieldMoveKnownCount], a
-	jr .loop
-.done
-	ret
-
-HMFieldMoveDisplayData:
-	; move id, FieldMoveNames index, leftmost tile
-	db CUT,      1, $0C
-	db FLY,      2, $0C
-	db SURF,     4, $0C
-	db STRENGTH, 5, $0A
-	db FLASH,    6, $0C
-	db -1
 
 INCLUDE "data/moves/field_moves.asm"
