@@ -92,7 +92,6 @@ DisplayNamingScreen:
 	call RunPaletteCommand
 	call LoadHpBarAndStatusTilePatterns
 	call LoadEDTile
-	farcall LoadMonPartySpriteGfx
 	hlcoord 0, 4
 	ld b, 9
 	ld c, 18
@@ -462,7 +461,7 @@ PrintNamingText:
 	ld a, [wCurPartySpecies]
 	ld [wMonPartySpriteSpecies], a
 	push af
-	farcall WriteMonPartySpriteOAMBySpecies
+	farcall LoadSinglePartyMonSprite
 	pop af
 	ld [wNamedObjectIndex], a
 	call GetMonName
