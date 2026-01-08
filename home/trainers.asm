@@ -351,7 +351,7 @@ PrintEndBattleText::
 	ldh [hLoadedROMBank], a
 	ld [rROMB], a
 	push hl
-	farcall SaveTrainerName
+		call SaveTrainerName
 	ld hl, TrainerEndBattleText
 	call PrintText
 	pop hl
@@ -360,6 +360,17 @@ PrintEndBattleText::
 	ld [rROMB], a
 	farcall SetEnemyTrainerToStayAndFaceAnyDirection
 	jp WaitForSoundToFinish
+
+SaveTrainerName::
+	ld hl, wTrainerName
+	ld de, wcd6d
+.CopyCharacter
+	ld a, [hli]
+	ld [de], a
+	inc de
+	cp "@"
+	jr nz, .CopyCharacter
+	ret
 
 GetSavedEndBattleTextPointer::
 	ld a, [wBattleResult]
