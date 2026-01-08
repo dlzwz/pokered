@@ -506,25 +506,196 @@ PokemonMenuEntries:
 	next "SWITCH"
 	next "CANCEL@"
 
+; Check if the Pokemon in [wWhichPokemon] can learn move in register b
+; Returns: carry clear if can learn, carry set if cannot learn
+; Preserves: bc, de, hl
+CanLearnFieldMove:
+	push bc
+	push de
+	push hl
+	; Get Pokemon species
+	ld a, [wWhichPokemon]
+	ld hl, wPartySpecies
+	ld e, a
+	ld d, 0
+	add hl, de
+	ld a, [hl]
+	ld [wCurPartySpecies], a
+	ld [wCurSpecies], a
+	; Only check the 5 Gen 1 HMs
+	ld a, b
+	cp CUT
+	jr z, .checkHM
+	cp FLY
+	jr z, .checkHM
+	cp SURF
+	jr z, .checkHM
+	cp STRENGTH
+	jr z, .checkHM
+	cp FLASH
+	jr z, .checkHM
+	; Not a Gen 1 HM, check level-up moves
+	jr .checkLevelUp
+.checkHM
+	; For HMs, manually check the tmhm bitfield
+	; First, load the Pokemon's base stats
+	push bc
+	call GetMonHeader
+	pop bc
+	; Now wMonHLearnset contains the tmhm bitfield
+	; Find which bit corresponds to this HM
+	; b = move ID, need to find its _TMNUM value
+	ld a, b
+	cp CUT
+	jr nz, .notCut
+	ld c, 50 ; CUT_TMNUM - 1 = 51 - 1 = 50
+	jr .testBit
+.notCut
+	cp FLY
+	jr nz, .notFly
+	ld c, 51 ; FLY_TMNUM - 1 = 52 - 1 = 51
+	jr .testBit
+.notFly
+	cp SURF
+	jr nz, .notSurf
+	ld c, 52 ; SURF_TMNUM - 1 = 53 - 1 = 52
+	jr .testBit
+.notSurf
+	cp STRENGTH
+	jr nz, .notStrength
+	ld c, 53 ; STRENGTH_TMNUM - 1 = 54 - 1 = 53
+	jr .testBit
+.notStrength
+	; Must be FLASH
+	ld c, 54 ; FLASH_TMNUM - 1 = 55 - 1 = 54
+.testBit
+	; c = bit index (0-54)
+	; Calculate byte offset: c / 8
+	ld a, c
+	srl a
+	srl a
+	srl a
+	; a = byte offset
+	ld hl, wMonHLearnset
+	ld e, a
+	ld d, 0
+	add hl, de
+	; hl now points to the correct byte
+	; Calculate bit mask: 1 << (c % 8)
+	ld a, c
+	and 7
+	ld b, a  ; b = bit position (0-7)
+	ld a, 1  ; start with bit 0 set
+	; Shift left b times
+	inc b    ; increment so we can use djnz
+.shiftLoop
+	dec b
+	jr z, .doneShift
+	sla a
+	jr .shiftLoop
+.doneShift
+	; a = bit mask
+	and [hl]
+	jr z, .cannotLearn
+	jr .canLearn
+.checkLevelUp
+	; Check level-up learnset for non-HM moves
+	ld a, [wCurPartySpecies]
+	dec a
+	push bc
+	ld bc, 0
+	ld hl, EvosMovesPointerTable
+	add a
+	rl b
+	ld c, a
+	add hl, bc
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	pop bc
+.skipEvos
+	ld a, [hli]
+	and a
+	jr nz, .skipEvos
+.checkLearnsetLoop
+	ld a, [hli]
+	and a
+	jr z, .cannotLearn
+	; a = level, next byte is move
+	push bc
+	ld c, [hl]
+	inc hl
+	ld a, b ; original move ID
+	cp c
+	pop bc
+	jr nz, .checkLearnsetLoop
+.canLearn
+	pop hl
+	pop de
+	pop bc
+	and a ; clear carry
+	ret
+.cannotLearn
+	pop hl
+	pop de
+	pop bc
+	scf ; set carry
+	ret
+
+; Check if Pokemon in [wWhichPokemon] knows move in register b
+; Returns: carry clear if knows, carry set if doesn't know
+DoesMonKnowMove:
+	push de
+	push hl
+	ld a, [wWhichPokemon]
+	ld hl, wPartyMon1Moves
+	ld de, PARTYMON_STRUCT_LENGTH
+	and a
+	jr z, .skipMultiply
+.multiply
+	add hl, de
+	dec a
+	jr nz, .multiply
+.skipMultiply
+	ld d, h
+	ld e, l
+	ld c, NUM_MOVES
+.loop
+	ld a, [de]
+	cp b
+	jr z, .knows
+	inc de
+	dec c
+	jr nz, .loop
+	pop hl
+	pop de
+	scf ; doesn't know
+	ret
+.knows
+	pop hl
+	pop de
+	and a ; knows it
+	ret
+
 GetMonFieldMoves:
+	; First, check moves the Pokemon currently knows (original behavior)
 	ld a, [wWhichPokemon]
 	ld hl, wPartyMon1Moves
 	ld bc, PARTYMON_STRUCT_LENGTH
 	call AddNTimes
 	ld d, h
 	ld e, l
-	ld c, NUM_MOVES + 1
+	ld c, NUM_MOVES
 	ld hl, wFieldMoves
 .loop
-	push hl
-.nextMove
-	dec c
-	jr z, .done
 	ld a, [de] ; move ID
 	and a
-	jr z, .done
+	jr z, .checkCanLearnMoves ; no more moves
 	ld b, a
 	inc de
+	push bc
+	push de
+	push hl
 	ld hl, FieldMoveDisplayData
 .fieldMoveLoop
 	ld a, [hli]
@@ -551,11 +722,135 @@ GetMonFieldMoves:
 	ld a, b
 	ld [wFieldMovesLeftmostXCoord], a
 .skipUpdatingLeftmostXCoord
-	ld a, [wLastFieldMoveID]
-	ld b, a
-	jr .loop
-.done
+	pop de
+	pop bc
+	dec c
+	jr nz, .loop
+	jr .checkCanLearnMoves
+.nextMove
 	pop hl
+	pop de
+	pop bc
+	dec c
+	jr nz, .loop
+.checkCanLearnMoves
+	; Now check Gen 1 HM field moves that can be learned
+	; hl points to next free slot in wFieldMoves
+	; Check CUT
+	ld b, CUT
+	call .checkHMFieldMove
+	; Check FLY
+	ld b, FLY
+	call .checkHMFieldMove
+	; Check SURF
+	ld b, SURF
+	call .checkHMFieldMove
+	; Check STRENGTH
+	ld b, STRENGTH
+	call .checkHMFieldMove
+	; Check FLASH
+	ld b, FLASH
+	call .checkHMFieldMove
+	ret
+
+.checkHMFieldMove
+	; Input: b = move ID to check, hl = pointer to next free slot in wFieldMoves
+	; Output: hl updated to point past any added entry
+	push bc
+	push de
+	; First check if already in list
+	ld a, [wNumFieldMoves]
+	and a
+	jr z, .notInList
+	ld c, a ; count
+	push bc
+	push hl
+	; Find what the name index would be for this move
+	ld a, b
+	ld e, a
+	ld hl, FieldMoveDisplayData
+.findNameIndex
+	ld a, [hli]
+	cp e
+	jr z, .foundNameIndex
+	inc hl
+	inc hl
+	jr .findNameIndex
+.foundNameIndex
+	ld a, [hl] ; name index
+	ld d, a
+	; Now check if this name index is already in wFieldMoves
+	pop hl
+	pop bc
+	push hl
+	ld hl, wFieldMoves
+.checkDuplicateLoop
+	ld a, [hli]
+	cp d
+	jr z, .alreadyInList
+	dec c
+	jr nz, .checkDuplicateLoop
+	pop hl
+	jr .notInList
+.alreadyInList
+	pop hl
+	pop de
+	pop bc
+	ret
+.notInList
+	; Check if Pokemon can learn this move
+	push hl
+	push bc
+	call CanLearnFieldMove
+	pop bc
+	pop hl
+	jr c, .skipMove ; cannot learn
+	; Check if we've already hit the limit
+	push hl
+	ld a, [wNumFieldMoves]
+	cp NUM_MOVES
+	pop hl
+	jr nc, .skipMove ; already at max
+	; Add this move
+	push hl
+	push bc
+	ld a, b ; move ID
+	ld c, a
+	ld hl, FieldMoveDisplayData
+.findMoveData
+	ld a, [hli]
+	cp c
+	jr z, .foundMoveData
+	inc hl
+	inc hl
+	jr .findMoveData
+.foundMoveData
+	ld a, [hli] ; name index
+	ld d, a
+	ld a, [hl] ; leftmost X coord
+	ld e, a
+	pop bc
+	pop hl
+	; Write to wFieldMoves
+	ld a, d
+	ld [hli], a
+	; Update count
+	ld a, [wNumFieldMoves]
+	inc a
+	ld [wNumFieldMoves], a
+	; Update leftmost X
+	ld a, [wFieldMovesLeftmostXCoord]
+	cp e
+	jr c, .doneAdding
+	ld a, e
+	ld [wFieldMovesLeftmostXCoord], a
+.doneAdding
+	pop de
+	pop bc
+	ret
+.skipMove
+	pop de
+	pop bc
 	ret
 
 INCLUDE "data/moves/field_moves.asm"
