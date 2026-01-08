@@ -674,10 +674,10 @@ AddLearnableHMFieldMoves:
 	ld b, a
 	ld a, [wFieldMovesLeftmostXCoord]
 	cp b
-	jr c, .loop
+	jp c, .loop
 	ld a, b
 	ld [wFieldMovesLeftmostXCoord], a
-	jr .loop
+	jp .loop
 .done
 	ret
 
