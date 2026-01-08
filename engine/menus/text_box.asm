@@ -564,8 +564,6 @@ GetMonFieldMoves:
 	ld a, [hl]
 	and a
 	ret z
-	cp EGG
-	ret z
 	ld c, a
 	ld hl, HMFieldMoveIDs
 .hmLoop
