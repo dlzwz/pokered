@@ -601,8 +601,21 @@ AddLearnableHMFieldMoves:
 	pop bc
 	pop hl
 	jr c, .skip
+	push hl
+	push bc
+	call HMFieldMoveAlreadyListed
+	pop bc
+	pop hl
+	jr c, .skip
 	ld a, b
 	ld [wMoveNum], a
+	ld a, [wWhichPokemon]
+	ld c, a
+	ld b, 0
+	ld hl, wPartySpecies
+	add hl, bc
+	ld a, [hl]
+	ld [wCurPartySpecies], a
 	push hl
 	push bc
 	predef CanLearnTM
@@ -643,6 +656,26 @@ MonKnowsMove:
 	cp b
 	jr z, .found
 	dec c
+	jr nz, .loop
+	and a
+	ret
+.found
+	scf
+	ret
+
+HMFieldMoveAlreadyListed:
+; input: c = field move name index
+; output: carry set if name index already in wFieldMoves
+	ld a, [wNumFieldMoves]
+	and a
+	ret z
+	ld b, a
+	ld hl, wFieldMoves
+.loop
+	ld a, [hli]
+	cp c
+	jr z, .found
+	dec b
 	jr nz, .loop
 	and a
 	ret
