@@ -574,7 +574,11 @@ GetMonFieldMoves:
 	ld a, c
 	call CanSpeciesLearnHMFieldMove
 	jr nc, .hmLoop
+	push bc
+	push hl
 	call AddFieldMoveByID
+	pop hl
+	pop bc
 	jr .hmLoop
 
 AddFieldMoveByID:
