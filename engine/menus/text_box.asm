@@ -553,6 +553,13 @@ CanLearnFieldMove:
 .notCut
 	cp FLY
 	jr nz, .notFly
+	; Special case: Charizard can use FLY in the field menu (Yellow version behavior)
+	ld a, [wCurPartySpecies]
+	cp CHARIZARD
+	jr nz, .notCharizardFly
+	; This is Charizard checking FLY - always allow
+	jr .canLearn
+.notCharizardFly
 	ld c, 51 ; FLY_TMNUM - 1 = 52 - 1 = 51
 	jr .testBit
 .notFly
