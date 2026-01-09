@@ -168,6 +168,7 @@ TryingToLearn:
 	call IsMoveHM
 	pop bc
 	pop de
+	ld a, d
 	pop hl
 	add hl, bc
 	and a
