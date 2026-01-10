@@ -556,6 +556,176 @@ GetMonFieldMoves:
 	jr .loop
 .done
 	pop hl
+	ld a, [wWhichPokemon]
+	ld hl, wPartySpecies
+	ld c, a
+	ld b, 0
+	add hl, bc
+	ld a, [hl]
+	and a
+	ret z
+	ld c, a
+	ld hl, HMFieldMoveIDs
+.hmLoop
+	ld a, [hli]
+	cp $ff
+	ret z
+	ld b, a
+	ld a, c
+	call CanSpeciesLearnHMFieldMove
+	jr nc, .hmLoop
+	push bc
+	push hl
+	call AddFieldMoveByID
+	pop hl
+	pop bc
+	jr .hmLoop
+
+AddFieldMoveByID:
+; input: b = move id
+	call FindFieldMoveDisplayData
+	ret nc
+	ld c, a
+	ld a, [wNumFieldMoves]
+	and a
+	jr z, .checkCapacity
+	ld e, a
+	ld hl, wFieldMoves
+.checkExisting
+	ld a, [hli]
+	cp c
+	ret z
+	dec e
+	jr nz, .checkExisting
+.checkCapacity
+	ld a, [wNumFieldMoves]
+	cp NUM_MOVES
+	ret nc
+	ld e, a
+	ld d, 0
+	ld hl, wFieldMoves
+	add hl, de
+	ld a, c
+	ld [hl], a
+	ld a, [wNumFieldMoves]
+	inc a
+	ld [wNumFieldMoves], a
+	ld a, [wFieldMovesLeftmostXCoord]
+	cp b
+	ret c
+	ld a, b
+	ld [wFieldMovesLeftmostXCoord], a
 	ret
+
+FindFieldMoveDisplayData:
+; input: b = move id
+; output: carry set, a = field move name index, b = leftmost X coord
+	ld hl, FieldMoveDisplayData
+.fieldMoveLoop
+	ld a, [hli]
+	cp $ff
+	jr z, .notFound
+	cp b
+	jr z, .found
+	inc hl
+	inc hl
+	jr .fieldMoveLoop
+.found
+	ld a, [hli]
+	ld b, [hl]
+	scf
+	ret
+.notFound
+	and a
+	ret
+
+CanSpeciesLearnHMFieldMove:
+; input: a = species, b = move id
+; output: carry set if compatible
+	push bc
+	push de
+	push hl
+	ld c, a
+	ld a, b
+	call GetHMFieldMoveTMNum
+	jr nc, .done
+	ld e, a
+	dec e
+	ldh a, [hLoadedROMBank]
+	push af
+	ld a, BANK(BaseStats)
+	ldh [hLoadedROMBank], a
+	ld [rROMB], a
+	ld a, c
+	dec a
+	ld bc, BASE_DATA_SIZE
+	ld hl, BaseStats
+	call AddNTimes
+	ld bc, BASE_TMHM
+	add hl, bc
+	ld a, e
+	srl a
+	srl a
+	srl a
+	ld c, a
+	ld b, 0
+	add hl, bc
+	ld b, [hl]
+	ld a, e
+	and 7
+	ld c, a
+	ld hl, BitMasks
+	add hl, bc
+	ld a, [hl]
+	and b
+	ld d, a
+	pop af
+	ldh [hLoadedROMBank], a
+	ld [rROMB], a
+	ld a, d
+	and a
+	jr z, .done
+	scf
+.done
+	pop hl
+	pop de
+	pop bc
+	ret
+
+GetHMFieldMoveTMNum:
+; input: a = move id
+; output: carry set, a = TM/HM learnset bit index
+	ld e, a
+	ld hl, HMFieldMoveTMNumPairs
+.loop
+	ld a, [hli]
+	cp $ff
+	jr z, .notFound
+	cp e
+	jr z, .found
+	inc hl
+	jr .loop
+.found
+	ld a, [hl]
+	scf
+	ret
+.notFound
+	and a
+	ret
+
+HMFieldMoveTMNumPairs:
+	db CUT, CUT_TMNUM
+	db FLY, FLY_TMNUM
+	db SURF, SURF_TMNUM
+	db STRENGTH, STRENGTH_TMNUM
+	db FLASH, FLASH_TMNUM
+	db $ff
+
+HMFieldMoveIDs:
+	db CUT, FLY, SURF, STRENGTH, FLASH, $ff
+
+BitMasks:
+	db %00000001, %00000010, %00000100, %00001000
+	db %00010000, %00100000, %01000000, %10000000
 
 INCLUDE "data/moves/field_moves.asm"
